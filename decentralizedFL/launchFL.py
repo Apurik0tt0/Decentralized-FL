@@ -38,9 +38,9 @@ hyperparams = DDict(client=client_hp,
                     server=DDict(weighted=True),
                     model="MNIST_2NN")
 
-#from fluke.algorithms.fedavg import FedAVG
-from p2p import P2P
-algorithm = P2P(100, splitter, hyperparams)
+# import your own algorithm here
+from personalizedAlgoBase import PersonalizedAlgo
+algorithm = PersonalizedAlgo(100, splitter, hyperparams)
 
 from fluke.utils.log import Log
 logger = Log()
