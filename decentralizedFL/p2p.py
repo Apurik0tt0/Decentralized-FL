@@ -1,10 +1,14 @@
 import copy
+from typing import Sequence
 import numpy as np
 import torch
 from fluke.server import Server
 from fluke.client import Client
 from fluke.comm import Message
 from fluke.utils.model import aggregate_models
+from rich.table import Table
+from rich.console import Console
+from fluke import FlukeENV
 
 
 class P2PServer(Server):
@@ -87,7 +91,7 @@ class P2PServer(Server):
         # Optionnel : On met à jour self.model avec la moyenne globale juste pour l'évaluation "Server-side"
         # si vous voulez garder une trace de la performance globale du réseau.
         all_states = list(self.client_states.values())
-        #self.model.load_state_dict(self._average_state_dicts(all_states))
+        self.model.load_state_dict(self._average_state_dicts(all_states))
 
     def _average_state_dicts(self, state_dicts):
         """Fonction utilitaire pour moyenner une liste de state_dicts."""
@@ -104,6 +108,43 @@ class P2PServer(Server):
                 
         return avg_state
     
+    def _compute_evaluation(self, round: int, eligible: Sequence[Client]) -> None:
+        """
+        Surcharge pour afficher les performances individuelles.
+        """
+        # 1. On garde le comportement standard (Global eval) si désiré
+        super()._compute_evaluation(round, eligible)
+
+        # 2. Notre affichage personnalisé
+        console = Console()
+        table = Table(title=f"📊 Performances P2P - Round {round + 1}")
+
+        table.add_column("Client ID", justify="center", style="cyan")
+        table.add_column("Accuracy", justify="right", style="green")
+        table.add_column("Loss", justify="right", style="red")
+
+        # On évalue chaque client participant
+        evaluator = FlukeENV().get_evaluator()
+        
+        # Note: server.py utilise eligible, mais pour le P2P on peut vouloir tout le monde
+        # Si vous voulez évaluer tout le monde, remplacez 'eligible' par 'self.clients'
+        # Attention : évaluer tout le monde est plus long.
+        for client in eligible:
+            # client.evaluate utilise le modèle local du client
+            metrics = client.evaluate(evaluator, self.test_set)
+            
+            # Protection si l'évaluation échoue ou retourne vide
+            acc = metrics.get('accuracy', 0.0)
+            loss = metrics.get('loss', 0.0) # Si le loss est calculé par l'évaluateur
+
+            table.add_row(
+                str(client.index), 
+                f"{acc:.4f}", 
+                f"{loss:.4f}" if loss else "N/A"
+            )
+
+        console.print(table)
+
 class P2PClient(Client):
 
     # we override the fit method to implement our training "strategy"
