@@ -10,13 +10,14 @@ dataset = Datasets.get("mnist", path="./data")
 
 from fluke.data import DataSplitter
 splitter = DataSplitter(dataset=dataset,
-                        distribution="iid")
+                        distribution="dir")
 
 from fluke.evaluation import ClassificationEval
 from fluke import FlukeENV
 
 evaluator = ClassificationEval(eval_every=1, n_classes=dataset.num_classes)
 FlukeENV().set_evaluator(evaluator)
+FlukeENV().set_seed(42)
 
 from fluke import DDict
 client_hp = DDict(
@@ -39,11 +40,13 @@ hyperparams = DDict(client=client_hp,
                     model="MNIST_2NN")
 
 # import your own algorithm here
-from personalizedAlgoBase import PersonalizedAlgo
-algorithm = PersonalizedAlgo(100, splitter, hyperparams)
+#from personalizedAlgoBase import PersonalizedAlgo
+#algorithm = PersonalizedAlgo(7, splitter, hyperparams)
+from fluke.algorithms.fedavg import FedAVG
+algorithm = FedAVG(7, splitter, hyperparams)
 
 from fluke.utils.log import Log
 logger = Log()
 algorithm.set_callbacks(logger)
 
-algorithm.run(3, 0.5)
+algorithm.run(10, 0.5)

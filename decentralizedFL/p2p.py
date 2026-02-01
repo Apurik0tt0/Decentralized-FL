@@ -29,6 +29,9 @@ class P2PServer(Server):
             for client in clients
         }
 
+        # Initialisation : cout en communication
+        self.total_messages_sent = 0
+
     def broadcast_model(self, eligible):
         """
         Surcharge de la méthode de server.py.
@@ -45,10 +48,6 @@ class P2PServer(Server):
             model_to_send = copy.deepcopy(self.model)
             
             # 3. Envoyer en unicast via le channel
-            # self.channel.send(
-            #     Message(model_to_send, "model", dst=client.index, src="server"), 
-            #     dest=str(client.index) # Le channel attend souvent un str ou l'ID direct selon l'implémentation
-            # )
             self.channel.broadcast(
                 Message(model_to_send, "model", "server"),
                 [client.index]
@@ -72,10 +71,16 @@ class P2PServer(Server):
 
         # 2. Logique de mélange (Gossip)
         next_round_states = {}
+
+        # Calcul du coût de communication pour ce round
+        round_messages = 0
         
         for client in self.clients:
             cid = client.index
             neighbors = self.adjacency_matrix.get(cid, [])
+
+            # On compte 1 message par voisin existant dans la simulation
+            round_messages += len(neighbors)
             
             # On récupère les dictionnaires (state_dicts) stockés
             states_to_avg = [self.client_states[cid]]
@@ -86,6 +91,10 @@ class P2PServer(Server):
             # On fait la moyenne des dictionnaires
             next_round_states[cid] = self._average_state_dicts(states_to_avg)
 
+        self.client_states = next_round_states
+
+        # Mise à jour des compteurs globaux
+        self.total_messages_sent += round_messages
         self.client_states = next_round_states
         
         # Optionnel : On met à jour self.model avec la moyenne globale juste pour l'évaluation "Server-side"
@@ -145,12 +154,33 @@ class P2PServer(Server):
 
         console.print(table)
 
+        total_computation = sum(c.total_epochs_performed for c in self.clients if isinstance(c, P2PClient))
+        # Affichage du résumé des coûts
+        console.print(f"[bold yellow]⚡ Coûts Cumulés du Réseau :[/bold yellow]")
+        console.print(f"   ➤ Communication (Total Messages) : [blue]{self.total_messages_sent}[/blue]")
+        console.print(f"   ➤ Calcul (Total Époques Locales) : [magenta]{total_computation}[/magenta]")
+        console.print("-" * 40)
+
 class P2PClient(Client):
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Compteur pour le coût de calcul (total époques)
+        self.total_epochs_performed = 0
+        # Variable pour stocker le nombre d'époques du dernier round (pour l'affichage)
+        self.last_round_epochs = 0
 
     # we override the fit method to implement our training "strategy"
     def fit(self, override_local_epochs: int = 0) -> float:
-        # we can override the number of local epochs and call the parent class method
+
+        # 1. we can override the number of local epochs and call the parent class method
         new_local_epochs = np.random.randint(1, self.hyper_params.local_epochs + 1)
+
+        # 2. Save the cost
+        self.total_epochs_performed += new_local_epochs
+        self.last_round_epochs = new_local_epochs
+
+        # 3. Call the parent method
         return super().fit(new_local_epochs)
     
 from fluke.algorithms import CentralizedFL

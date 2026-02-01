@@ -10,13 +10,14 @@ dataset = Datasets.get("mnist", path="./data")
 
 from fluke.data import DataSplitter
 splitter = DataSplitter(dataset=dataset,
-                        distribution="iid")
+                        distribution="dir")
 
 from fluke.evaluation import ClassificationEval
 from fluke import FlukeENV
 
 evaluator = ClassificationEval(eval_every=1, n_classes=dataset.num_classes)
 FlukeENV().set_evaluator(evaluator)
+FlukeENV().set_seed(42)
 
 from fluke import DDict
 client_hp = DDict(
