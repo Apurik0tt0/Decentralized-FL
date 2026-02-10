@@ -21,6 +21,9 @@ class P2PServer(Server):
 
         # modifier la matrice d'adjacence ici
         self.adjacency_matrix = {0: [1,2], 1: [2], 2: [1,3,5], 3: [2], 4: [6], 5: [2,6], 6: [5,4]}
+
+        #compteur de nombre de selection total
+        self.selection_number = [0 for _ in range(self.n_clients)]
         
         # Initialisation : On clone le state_dict initial pour chaque client
         initial_state = model.state_dict()
@@ -130,15 +133,19 @@ class P2PServer(Server):
 
         table.add_column("Client ID", justify="center", style="cyan")
         table.add_column("Accuracy", justify="right", style="green")
-        table.add_column("Loss", justify="right", style="red")
+        table.add_column("Selection nb", justify="right", style="red")
 
         # On évalue chaque client participant
         evaluator = FlukeENV().get_evaluator()
+
+        #compte le nombre de fois qu'un client et séléctionné
+        for client in eligible:
+            self.selection_number[client.index] += 1
         
         # Note: server.py utilise eligible, mais pour le P2P on peut vouloir tout le monde
         # Si vous voulez évaluer tout le monde, remplacez 'eligible' par 'self.clients'
         # Attention : évaluer tout le monde est plus long.
-        for client in eligible:
+        for client in self.clients:
             # client.evaluate utilise le modèle local du client
             metrics = client.evaluate(evaluator, self.test_set)
             
@@ -149,7 +156,7 @@ class P2PServer(Server):
             table.add_row(
                 str(client.index), 
                 f"{acc:.4f}", 
-                f"{loss:.4f}" if loss else "N/A"
+                f"{self.selection_number[client.index]}"
             )
 
         console.print(table)
@@ -181,7 +188,9 @@ class P2PClient(Client):
         self.last_round_epochs = new_local_epochs
 
         # 3. Call the parent method
-        return super().fit(new_local_epochs)
+        #return super().fit(new_local_epochs)
+
+        return super().fit()
     
 from fluke.algorithms import CentralizedFL
 

@@ -1,6 +1,8 @@
 import os
 import sys
 
+from fluke import FlukeENV
+FlukeENV().set_seed(42)
 
 module_path = os.path.abspath(os.path.join('..'))
 sys.path.insert(0, module_path)
@@ -13,16 +15,14 @@ splitter = DataSplitter(dataset=dataset,
                         distribution="dir")
 
 from fluke.evaluation import ClassificationEval
-from fluke import FlukeENV
 
 evaluator = ClassificationEval(eval_every=1, n_classes=dataset.num_classes)
 FlukeENV().set_evaluator(evaluator)
-FlukeENV().set_seed(42)
 
 from fluke import DDict
 client_hp = DDict(
     batch_size=10,
-    local_epochs=5,
+    local_epochs=3,
     loss="CrossEntropyLoss",
     optimizer=DDict(
       name="SGD",
@@ -47,4 +47,4 @@ from fluke.utils.log import Log
 logger = Log()
 algorithm.set_callbacks(logger)
 
-algorithm.run(10, 0.5)
+algorithm.run(50, 0.5)
